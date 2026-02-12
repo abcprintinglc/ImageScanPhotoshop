@@ -152,6 +152,19 @@ def detect_cards(image: np.ndarray, min_area_ratio: float = 0.01) -> List[np.nda
     return [d.contour.reshape(4, 2).astype("float32") for d in kept]
 
 
+def normalize_pdf_bitmap(bitmap: np.ndarray) -> np.ndarray:
+    """Normalize pdfium bitmap to BGR without channel swapping artifacts."""
+    if bitmap.ndim == 2:
+        return cv2.cvtColor(bitmap, cv2.COLOR_GRAY2BGR)
+
+    if bitmap.shape[2] == 4:
+        # pdfium commonly returns BGRA by default. Keep BGR order.
+        return cv2.cvtColor(bitmap, cv2.COLOR_BGRA2BGR)
+
+    # For 3-channel output, pdfium defaults to BGR byte-order.
+    return bitmap.copy()
+
+
 def load_pages(path: Path, dpi: int = 300) -> List[np.ndarray]:
     ext = path.suffix.lower()
     pages: List[np.ndarray] = []
@@ -166,13 +179,7 @@ def load_pages(path: Path, dpi: int = 300) -> List[np.ndarray]:
         scale = dpi / 72.0
         for i in range(len(pdf)):
             bitmap = pdf[i].render(scale=scale).to_numpy()
-            if bitmap.ndim == 2:
-                bitmap = cv2.cvtColor(bitmap, cv2.COLOR_GRAY2BGR)
-            elif bitmap.shape[2] == 4:
-                bitmap = cv2.cvtColor(bitmap, cv2.COLOR_RGBA2BGR)
-            else:
-                bitmap = cv2.cvtColor(bitmap, cv2.COLOR_RGB2BGR)
-            pages.append(bitmap)
+            pages.append(normalize_pdf_bitmap(bitmap))
         return pages
 
     if ext in {".tif", ".tiff"}:

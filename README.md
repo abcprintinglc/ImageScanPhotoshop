@@ -72,6 +72,25 @@ python business_card_extractor.py input_scan.pdf -o output_cards --min-area-rati
 Photoshop bridge remains optional (`photoshop/RunCardExtraction.jsx`), but EXE is the recommended workflow.
 
 
+## Debug-first workflow (always test run)
+
+After every change or rescan, do a test run with debug enabled first:
+
+```bash
+python business_card_extractor.py input_scan.pdf -o output_cards --debug
+```
+
+Then check:
+- extracted cards in `output_cards/`
+- detection overlays in `output_cards/debug/`
+
+If detections are present but crops look off, adjust the scan placement and run again.
+
+## Blue color issue fix
+
+The PDF loader now preserves pdfium's native BGR channel order instead of forcing RGB->BGR conversion. This avoids blue-tinted outputs caused by channel swapping during PDF decode.
+
+
 ## Photoshop plugin workflow (requested)
 
 Use `photoshop/CardAlignCropExport.jsx` for a Photoshop-native workflow:
