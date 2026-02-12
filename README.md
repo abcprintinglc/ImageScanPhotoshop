@@ -70,3 +70,18 @@ python business_card_extractor.py input_scan.pdf -o output_cards --min-area-rati
 ## Photoshop script
 
 Photoshop bridge remains optional (`photoshop/RunCardExtraction.jsx`), but EXE is the recommended workflow.
+
+
+## Photoshop plugin workflow (requested)
+
+Use `photoshop/CardAlignCropExport.jsx` for a Photoshop-native workflow:
+
+1. Open image/card in Photoshop.
+2. Make a selection around the card/image area.
+3. Run `File -> Scripts -> Browse...` and choose `CardAlignCropExport.jsx`.
+4. Enter rotation angle (for straightening), choose PNG-8 color count (smaller file), choose output folder.
+5. Script crops to your selection with **delete=false** (hidden pixels preserved), then exports optimized PNG-8.
+
+Notes:
+- This avoids the blue color-shift issue from the previous external pipeline by exporting directly from Photoshop.
+- For smallest files, try 32 or 64 colors.
