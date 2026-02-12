@@ -7,9 +7,11 @@
         return;
     }
 
-    var scriptPath = File.openDialog("Select business_card_extractor.py");
-    if (!scriptPath) {
-        alert("Cancelled.");
+    var thisScript = new File($.fileName);
+    var repoRoot = thisScript.parent.parent;
+    var extractor = new File(repoRoot.fsName + "/business_card_extractor.py");
+    if (!extractor.exists) {
+        alert("Could not find business_card_extractor.py next to this repository.\nExpected: " + extractor.fsName);
         return;
     }
 
@@ -25,8 +27,7 @@
         return;
     }
 
-    var cmd = '"' + pythonPath + '" "' + scriptPath.fsName + '" "' + inputFile.fsName + '" -o "' + outputFolder.fsName + '"';
+    var cmd = '"' + pythonPath + '" "' + extractor.fsName + '" "' + inputFile.fsName + '" -o "' + outputFolder.fsName + '"';
     var result = app.system(cmd);
-
     alert("Business card extraction finished.\n\nOutput: " + outputFolder.fsName + "\n\nCommand output:\n" + result);
 })();
