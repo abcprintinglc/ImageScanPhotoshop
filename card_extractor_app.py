@@ -15,12 +15,13 @@ class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Business Card Extractor")
-        self.root.geometry("650x300")
+        self.root.geometry("740x360")
 
         self.input_var = tk.StringVar()
         self.output_var = tk.StringVar()
         self.min_area_var = tk.StringVar(value="0.01")
         self.pdf_dpi_var = tk.StringVar(value="300")
+        self.debug_var = tk.BooleanVar(value=True)
         self.status_var = tk.StringVar(value="Choose input and output, then click Run.")
 
         self._build()
@@ -30,11 +31,11 @@ class App:
         frame.pack(fill="both", expand=True)
 
         ttk.Label(frame, text="Input scan (image/TIFF/PDF):").grid(row=0, column=0, sticky="w")
-        ttk.Entry(frame, textvariable=self.input_var, width=60).grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        ttk.Entry(frame, textvariable=self.input_var, width=76).grid(row=1, column=0, sticky="ew", padx=(0, 8))
         ttk.Button(frame, text="Browse", command=self.pick_input).grid(row=1, column=1)
 
         ttk.Label(frame, text="Output folder:").grid(row=2, column=0, sticky="w", pady=(10, 0))
-        ttk.Entry(frame, textvariable=self.output_var, width=60).grid(row=3, column=0, sticky="ew", padx=(0, 8))
+        ttk.Entry(frame, textvariable=self.output_var, width=76).grid(row=3, column=0, sticky="ew", padx=(0, 8))
         ttk.Button(frame, text="Browse", command=self.pick_output).grid(row=3, column=1)
 
         opts = ttk.Frame(frame)
@@ -42,25 +43,22 @@ class App:
         ttk.Label(opts, text="Min area ratio:").grid(row=0, column=0, sticky="w")
         ttk.Entry(opts, textvariable=self.min_area_var, width=12).grid(row=0, column=1, sticky="w", padx=(8, 24))
         ttk.Label(opts, text="PDF DPI:").grid(row=0, column=2, sticky="w")
-        ttk.Entry(opts, textvariable=self.pdf_dpi_var, width=12).grid(row=0, column=3, sticky="w", padx=(8, 0))
+        ttk.Entry(opts, textvariable=self.pdf_dpi_var, width=12).grid(row=0, column=3, sticky="w", padx=(8, 24))
+        ttk.Checkbutton(opts, text="Save debug detection previews", variable=self.debug_var).grid(row=0, column=4, sticky="w")
 
         self.run_button = ttk.Button(frame, text="Run Extraction", command=self.start)
         self.run_button.grid(row=5, column=0, sticky="w", pady=(16, 0))
 
-        ttk.Label(frame, textvariable=self.status_var, wraplength=600).grid(row=6, column=0, columnspan=2, sticky="w", pady=(16, 0))
-
+        ttk.Label(frame, textvariable=self.status_var, wraplength=700).grid(row=6, column=0, columnspan=2, sticky="w", pady=(16, 0))
         frame.columnconfigure(0, weight=1)
 
     def pick_input(self) -> None:
         path = filedialog.askopenfilename(
-            filetypes=[
-                ("Supported", "*.png *.jpg *.jpeg *.tif *.tiff *.pdf *.bmp"),
-                ("All files", "*.*"),
-            ]
+            filetypes=[("Supported", "*.png *.jpg *.jpeg *.tif *.tiff *.pdf *.bmp"), ("All files", "*.*")]
         )
         if path:
             self.input_var.set(path)
-            if not self.output_var.get():
+            if not self.output_var.get().strip():
                 self.output_var.set(str(Path(path).with_suffix("")) + "_cards")
 
     def pick_output(self) -> None:
@@ -69,13 +67,21 @@ class App:
             self.output_var.set(path)
 
     def start(self) -> None:
-        input_path = Path(self.input_var.get()).expanduser()
-        output_path = Path(self.output_var.get()).expanduser()
-        if not input_path.exists():
-            messagebox.showerror("Invalid input", "Please select a valid input file.")
+        input_raw = self.input_var.get().strip()
+        output_raw = self.output_var.get().strip()
+
+        if not input_raw:
+            messagebox.showerror("Invalid input", "Please select an input file.")
             return
-        if not output_path:
+        if not output_raw:
             messagebox.showerror("Invalid output", "Please select an output folder.")
+            return
+
+        input_path = Path(input_raw).expanduser()
+        output_path = Path(output_raw).expanduser()
+
+        if not input_path.exists() or not input_path.is_file():
+            messagebox.showerror("Invalid input", "Please select a valid input file.")
             return
 
         try:
@@ -87,19 +93,40 @@ class App:
 
         self.run_button.configure(state="disabled")
         self.status_var.set("Running extraction...")
-        thread = threading.Thread(target=self._run_job, args=(input_path, output_path, min_area, pdf_dpi), daemon=True)
+        thread = threading.Thread(
+            target=self._run_job,
+            args=(input_path, output_path, min_area, pdf_dpi, self.debug_var.get()),
+            daemon=True,
+        )
         thread.start()
 
-    def _run_job(self, input_path: Path, output_path: Path, min_area: float, pdf_dpi: int) -> None:
+    def _run_job(self, input_path: Path, output_path: Path, min_area: float, pdf_dpi: int, save_debug: bool) -> None:
         try:
-            cards, pages = process_document(input_path, output_path, min_area_ratio=min_area, pdf_dpi=pdf_dpi)
-            self.root.after(0, self._on_success, cards, pages, output_path)
+            cards, pages = process_document(
+                input_path,
+                output_path,
+                min_area_ratio=min_area,
+                pdf_dpi=pdf_dpi,
+                save_debug=save_debug,
+            )
+            self.root.after(0, self._on_success, cards, pages, output_path, save_debug)
         except Exception as exc:
             self.root.after(0, self._on_error, str(exc))
 
-    def _on_success(self, cards: int, pages: int, out_path: Path) -> None:
+    def _on_success(self, cards: int, pages: int, out_path: Path, save_debug: bool) -> None:
         self.run_button.configure(state="normal")
-        msg = f"Done. Saved {cards} card(s) from {pages} page(s) to {out_path}."
+        debug_note = f"\nDebug previews: {out_path / 'debug'}" if save_debug else ""
+
+        if cards == 0:
+            msg = (
+                f"No cards detected across {pages} page(s).\n\n"
+                f"Try Min area ratio = 0.004 and run again.{debug_note}"
+            )
+            self.status_var.set("Done, but no cards were detected.")
+            messagebox.showwarning("No cards detected", msg)
+            return
+
+        msg = f"Done. Saved {cards} card(s) from {pages} page(s) to {out_path}.{debug_note}"
         self.status_var.set(msg)
         messagebox.showinfo("Complete", msg)
 

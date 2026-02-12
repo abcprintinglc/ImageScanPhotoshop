@@ -1,61 +1,72 @@
-# Business Card Extractor (Standalone Program)
+# Business Card Extractor (EXE-first)
 
-You asked for a **standalone + more stable** workflow (not dependent on Photoshop script prompts). This repo now provides that:
+Understood: GUI script alone wasn’t enough and you need an actual executable app.
 
-- `card_extractor_app.py` → desktop GUI app (Tkinter).
-- `business_card_extractor.py` → command-line engine used by the app.
+This repo now includes:
 
-Both support:
+- `business_card_extractor.py` (core engine)
+- `card_extractor_app.py` (desktop UI)
+- `build_exe.bat` (Windows one-click EXE build with PyInstaller)
+- `card_extractor_app.spec` (PyInstaller spec)
 
-- multiple cards on a page,
-- multi-page TIFF and PDF,
-- mixed designs and different card sizes (geometry-based detection).
+## What it does
 
-## Quick start (recommended)
+For scans/images/PDF/TIFF:
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python card_extractor_app.py
+1. Detect business cards.
+2. Perspective-correct / straighten each card.
+3. Crop each card.
+4. Save each one as PNG (`page_01_card_01.png`, etc.).
+
+Supports multi-page docs, mixed card designs, and different sizes.
+
+## Build the EXE (Windows)
+
+Open Command Prompt in the repo and run:
+
+```bat
+build_exe.bat
 ```
 
-In the app:
+EXE output:
 
-1. Choose input scan file (`.png/.jpg/.tif/.tiff/.pdf`).
-2. Choose output folder.
-3. Click **Run Extraction**.
-4. Output files are saved as `page_01_card_01.png`, etc.
+- `dist\business-card-extractor.exe`
 
-## Command-line usage
+## Run the EXE
+
+1. Launch `business-card-extractor.exe`.
+2. Choose input file.
+3. Choose output folder.
+4. Click **Run Extraction**.
+
+If no cards are found, app now warns clearly and suggests tuning.
+
+## Better diagnostics (important)
+
+The app now defaults to **Save debug detection previews**.
+
+- Debug images are saved to `output_folder\debug\page_XX_detections.png`.
+- These show green outlines where detections happened.
+- If output is empty, open debug images to see whether detection failed or cards were too small.
+
+## Tuning when no output appears
+
+- Lower **Min area ratio** (try `0.004`).
+- Increase **PDF DPI** (try `400`).
+- Ensure scans are high contrast and cards are separated.
+
+## CLI usage (optional)
 
 ```bash
-python business_card_extractor.py input_scan.pdf -o output_cards
+python business_card_extractor.py input_scan.pdf -o output_cards --debug
 ```
 
-Useful tuning:
+If it prints “No cards were detected”, try:
 
 ```bash
-python business_card_extractor.py scan.jpg -o cards --min-area-ratio 0.006 --pdf-dpi 300
+python business_card_extractor.py input_scan.pdf -o output_cards --min-area-ratio 0.004 --pdf-dpi 400 --debug
 ```
 
-## Build a single-file executable (standalone distribution)
+## Photoshop script
 
-If you want an EXE/app you can run without manually launching Python scripts:
-
-```bash
-pip install pyinstaller
-pyinstaller --onefile --windowed card_extractor_app.py --name business-card-extractor
-```
-
-Output binary will be under `dist/`.
-
-## Notes on reliability
-
-- The GUI app directly calls extraction logic; no Photoshop `app.system()` shell bridging needed.
-- If detection misses very small cards, lower `--min-area-ratio` (or GUI `Min area ratio`).
-- For PDFs, higher DPI improves edge quality but takes longer.
-
-## Optional Photoshop script
-
-`photoshop/RunCardExtraction.jsx` is still included, but the recommended path is the standalone app above.
+Photoshop bridge remains optional (`photoshop/RunCardExtraction.jsx`), but EXE is the recommended workflow.
